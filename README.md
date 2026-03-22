@@ -1,80 +1,394 @@
-# brewGPT
-In coffee, personalization is often discussed as an art, but operationally it is still difficult to scale.
-From Guesswork to Guided Brewing: Building BrewGPT for Personalized Coffee Recipes
+# BrewGPT
 
-Coffee has always been personal.
+**BrewGPT** is a Streamlit-based machine learning application for coffee recipe recommendation and comparison. It translates selected taste goals such as **Sweet**, **Caramel**, **Nutty**, **Citrus**, or **Dark.chocolate** into practical brewing settings using a **two-stage machine learning pipeline**.
 
-Some people look for sweetness and caramel. Others want brightness, citrus, or floral clarity. For many cafés and coffee professionals, the challenge is not just brewing coffee well. It is brewing coffee in a way that consistently aligns with what a person actually wants to taste.
+The system is designed as a **decision-support tool** for coffee personalization. It helps users move from taste preference to recommended brew settings, compare alternative recipes, inspect model quality, and collect brew feedback for future evaluation.
 
-That challenge is what inspired BrewGPT, a machine learning project designed to translate desired taste profiles into practical, data-guided brewing recommendations. Rather than relying purely on trial and error, the system helps users move from preference to recipe using a structured recommendation workflow built around controllable brewing variables, predicted process outcomes, and taste probabilities.
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Key Features](#key-features)
+- [How the Recommendation Engine Works](#how-the-recommendation-engine-works)
+- [Dataset Requirements](#dataset-requirements)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [How to Run](#how-to-run)
+- [Using the App](#using-the-app)
+- [Modeling Approach](#modeling-approach)
+- [Exports and Logs](#exports-and-logs)
+- [Optional Dependencies](#optional-dependencies)
+- [Troubleshooting](#troubleshooting)
+- [Team](#team)
+- [Disclaimer](#disclaimer)
 
-Why this problem matters
+## Project Overview
+Coffee preference is highly personal, but brewing decisions are often based on manual trial and error. BrewGPT addresses this by building a machine learning workflow that:
 
-In coffee, personalization is often discussed as an art, but operationally it is still difficult to scale.
+1. accepts selected taste targets and user-defined taste weights,
+2. predicts process outcomes from controllable brewing variables,
+3. estimates the probability of each taste profile,
+4. searches for candidate recipes that best align with the desired sensory outcome, and
+5. presents the best recipes in an interactive dashboard.
 
-A customer may describe a preferred cup as sweet, nutty, smooth, bright, or chocolatey, yet converting those descriptors into an actionable brew recipe remains highly dependent on intuition, repeated testing, and individual experience. That can lead to inconsistent outcomes, wasted beans, slower experimentation, and missed opportunities to create repeatable customer experiences.
+This project includes:
+- a **main recipe app** for generating and comparing recipes,
+- a **model comparison app/page** for benchmarking algorithms,
+- **local explainability** using **SHAP** (SHapley Additive exPlanations) when available,
+- export tools for **CSV** (Comma-Separated Values) and optional **PDF** (Portable Document Format), and
+- feedback and experiment logging for iterative quality tracking.
 
-What BrewGPT tries to do is bridge that gap. It treats taste preference as a decision problem that can be modeled, tested, and improved over time. Instead of asking baristas and coffee teams to start from scratch every time, it gives them a data-informed starting point that is both practical and explainable.
+## Key Features
 
-What BrewGPT actually does
+### 1. Single Recipe Generation
+Users can:
+- choose one or more target taste profiles,
+- assign custom taste weights,
+- select the machine learning algorithm,
+- define optimization settings such as search candidates and penalties,
+- apply scenario presets, and
+- generate top candidate coffee recipes.
 
-At the center of the project is a recommendation engine that takes a selected taste profile, or a weighted combination of taste goals, and produces recommended brewing settings such as volume, brew temperature, pour temperature, dose, and grind. These are the controllable inputs that a brewer can directly adjust in practice.
+### 2. Recipe Comparison
+The app can compare two separate recipe preference setups side by side. This makes it useful for:
+- A/B recipe exploration,
+- sensory trade-off analysis,
+- comparing preference profiles, and
+- exporting comparison reports.
 
-The system then predicts intermediate process outcomes such as 90-second temperature, brew mass, total dissolved solids (TDS), and percent extraction, before estimating the probability of achieving each taste attribute. In other words, the model does not simply jump from preference to answer. It follows a more structured two-stage logic:
+### 3. Quality Snapshot
+The app includes a model monitoring section with quality indicators such as:
+- **AUC** (Area Under the ROC Curve),
+- **F1 score**,
+- **Brier score**,
+- **ECE** (Expected Calibration Error),
+- **RMSE** (Root Mean Squared Error),
+- **MAE** (Mean Absolute Error), and
+- **R²** (Coefficient of Determination).
 
-Predict the brew process behavior from controllable settings.
-Predict the resulting taste probabilities from both the chosen inputs and the estimated process behavior.
+It also tracks saved experiment runs and user feedback ratings.
 
-That design matters because it makes the recommendation pipeline easier to interpret and closer to how brewing actually works in the real world.
+### 4. Explainability
+When SHAP is installed, the app can provide SHAP-based local explanations for recipe recommendations. If SHAP is not available, the app falls back to a local approximation approach.
 
-More than a model: a usable decision-support tool
+### 5. Export and Logging
+The app supports:
+- exporting recipe outputs to CSV,
+- exporting recipe and comparison summaries to PDF if `reportlab` is installed,
+- saving experiment runs to a log file, and
+- saving brew feedback to a separate feedback log.
 
-One thing I find especially meaningful about this project is that it is not just a notebook experiment. It was built into an interactive application with features that support real use and iteration.
+### 6. Scenario Presets
+The app includes preset flavor scenarios such as:
+- Sweet Caramel Comfort
+- Bright Citrus Lift
+- Dark Chocolate Roast
+- Floral Tea Clarity
+- Juicy Fruit Burst
+- Smooth Nutty Balance
+- Roasted Bitter Punch
+- Bright Clean Cup
+- Chocolate Caramel Dessert
+- Body Heavy Sweet
+- Low Bitterness Friendly
 
-The app allows users to:
+These presets serve as fast starting points for guided optimization.
 
-choose taste targets and assign weights to them,
-apply scenario presets such as sweet-caramel, bright-citrus, or dark-chocolate profiles,
-generate optimized recipes under operational constraints,
-compare two different recipes side by side,
-inspect model quality metrics,
-review feature-level explanations using SHAP or approximate local explanations, and
-save experiment runs and feedback for continuous learning.
+## How the Recommendation Engine Works
+BrewGPT uses a **two-stage machine learning pipeline**.
 
-That combination is important. Many machine learning projects stop at prediction accuracy. BrewGPT goes further by asking a more practical question: Can the model support better brewing decisions in a way that people can actually use?
+### Stage 1: Process Prediction
+From controllable brew settings, the app predicts process variables such as:
+- `90Sec Temp`
+- `Brew Mass`
+- `TDS__1`
+- `Percent Extraction`
 
-Why explainability matters here
+### Stage 2: Taste Probability Prediction
+Using the controllable settings plus predicted process values, the app estimates the probability of each taste attribute.
 
-In food and beverage applications, trust is critical.
+### Optimization
+The app then generates many candidate recipes and ranks them using:
+- weighted probabilities of selected tastes,
+- penalties for non-selected tastes, and
+- a distance penalty to keep recommendations close to realistic recipes in the dataset.
 
-If a model recommends a specific grind size or brew temperature, users need to understand why. That is why the project includes explainability features that show which controllable or process-related inputs most influenced a predicted taste outcome. This is especially valuable for baristas, coffee educators, and product developers who want more than just an output. They want a reasoned basis for that output.
+This makes the system more practical than simply maximizing one isolated target.
 
-Explainability also helps turn the system into a learning tool. Instead of replacing expertise, it can strengthen it by making patterns more visible.
+## Dataset Requirements
+The app expects a CSV file named:
 
-What I think is most exciting about this direction
+```text
+cotter_dataset.csv
+```
 
-The real opportunity is not limited to recommending one better cup.
+It should be placed in the same project root as `app.py`.
 
-Projects like this can grow into tools for:
+### Required columns
 
-barista training,
-sensory calibration,
-menu development,
-product innovation,
-quality assurance, and
-customer retention through better personalization.
+#### Taste columns
+```text
+Tea.floral
+Fruit
+Citrus
+Green.veg
+Paper.wood
+Burnt
+Cereal
+Nutty
+Dark.chocolate
+Caramel
+Bitter
+Astringent
+Roasted
+Sour
+Thick.viscous
+Sweet
+Rubber
+```
 
-When a café or coffee brand can more consistently align products with taste expectations, that creates real business value. It improves repeatability, reduces waste from failed experimentation, and opens the door to a more data-driven approach to sensory experience.
+#### Controllable brew columns
+```text
+Volume
+Brew Temperature
+Pour Temp
+Dose
+Grind
+```
 
-A broader reflection
+#### Process columns
+```text
+90Sec Temp
+Brew Mass
+TDS__1
+Percent Extraction
+```
 
-What this project reinforced for me is that machine learning becomes far more powerful when it is connected to a real human decision.
+Rows with missing values in required fields are dropped during training.
 
-In this case, the decision is simple to describe but difficult to solve well:
-How do we turn “I want this coffee to taste like this” into a recipe that is actually usable?
+## Project Structure
+A practical project layout for this repository is:
 
-BrewGPT is one attempt to answer that question with structure, experimentation, and feedback. It combines data, modeling, optimization, and interface design into one workflow that supports both technical analysis and practical use.
+```text
+BrewGPT/
+├── app.py
+├── cotter_dataset.csv
+├── logs/
+│   ├── experiment_log.csv
+│   └── feedback_log.csv
+├── pages/
+│   └── Model_Comparison.py
+├── assets/
+│   ├── Altonaga_Lorenzo_V,_Photo-MSDS2026.jpg
+│   ├── Sarceda_Jemiry_Royce-MSDS2026.jpg
+│   ├── Sunga_Bob_Mathew-MSDS2026.jpg
+│   └── Torres__Kendrick_Francis_-_MSDS_2026.jpg
+└── README.md
+```
 
-For me, that is the most rewarding part of building projects like this. It is not only about creating a model. It is about creating something that helps people make better decisions with more confidence.
+## Important note about the comparison page
+Your current file is named:
 
-Coffee is personal. The systems we build around it should be thoughtful enough to reflect that.
+```text
+app_model_comparison.py
+```
+
+However, the navigation inside `app.py` points to:
+
+```text
+pages/Model_Comparison.py
+```
+
+So if you want the built-in Streamlit page navigation to work exactly as coded, place the comparison file inside a `pages/` folder and rename it to:
+
+```text
+pages/Model_Comparison.py
+```
+
+If you keep `app_model_comparison.py` as a separate standalone file, you can still run it independently.
+
+## Installation
+Create and activate a virtual environment first.
+
+### Windows PowerShell
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### Windows Command Prompt
+```bat
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+### macOS / Linux
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Then install the required packages:
+
+```bash
+pip install streamlit pandas numpy scikit-learn matplotlib seaborn
+```
+
+### Optional packages
+Install these for extra features:
+
+```bash
+pip install xgboost shap reportlab
+```
+
+## How to Run
+
+### Run the main app
+```bash
+streamlit run app.py
+```
+
+### Run the comparison app as a standalone file
+```bash
+streamlit run app_model_comparison.py
+```
+
+### Run as a multipage Streamlit app
+If you reorganize the comparison page into `pages/Model_Comparison.py`, then run:
+
+```bash
+streamlit run app.py
+```
+
+and Streamlit will expose the comparison page through the multipage interface.
+
+## Using the App
+
+### Main tabs in `app.py`
+The main application includes these tabs:
+- **Single Recipe**
+- **Compare Two Recipes**
+- **Quality Snapshot**
+- **About This Project**
+- **Proponents**
+
+### Typical user workflow
+1. Select one or more target taste profiles.
+2. Assign weights to the selected tastes.
+3. Choose an algorithm such as Random Forest, Gradient Boosting, Neural Network, or XGBoost if available.
+4. Adjust search settings and recipe constraints.
+5. Generate the top candidate recipes.
+6. Inspect predicted process outputs and taste probabilities.
+7. Review confidence, uncertainty, and explanations.
+8. Export the results or submit brew feedback.
+
+## Modeling Approach
+
+### Supported algorithms
+- **RandomForest**
+- **GradientBoosting**
+- **NeuralNetwork**
+- **XGBoost** if installed
+
+### Main optimization controls
+The app exposes several useful controls:
+- **Top recipes to keep**
+- **Search candidates**
+- **Non-selected taste penalty**
+- **Distance penalty**
+- **Random seed**
+- recipe constraints for volume, brew temperature, pour temperature, dose, and grind
+
+### Quality metrics used
+For classification tasks on taste probabilities:
+- AUC
+- F1
+- Brier score
+- Expected Calibration Error
+
+For regression tasks on process prediction:
+- RMSE
+- MAE
+- R²
+
+## Exports and Logs
+The app automatically uses a `logs/` directory.
+
+### Log files
+- `logs/experiment_log.csv`
+- `logs/feedback_log.csv`
+
+### What gets saved
+**Experiment log** may include information such as:
+- timestamp,
+- run identifier,
+- algorithm,
+- selected tastes,
+- objective scores, and
+- recommendation details.
+
+**Feedback log** may include:
+- timestamp,
+- recipe details,
+- rating,
+- optional brew notes.
+
+### Export options
+Depending on the installed packages, users can export:
+- recipe CSV files,
+- comparison CSV files,
+- recipe PDF reports,
+- comparison PDF reports.
+
+## Optional Dependencies
+Some features only activate when certain libraries are installed.
+
+### `xgboost`
+Enables the **XGBoost** model option.
+
+### `shap`
+Enables SHAP-based local explanations.
+
+### `reportlab`
+Enables PDF export for recipe and comparison reports.
+
+If these packages are missing, the app still works, but some options will be hidden or replaced with fallbacks.
+
+## Troubleshooting
+
+### 1. `Could not find dataset: cotter_dataset.csv`
+Make sure `cotter_dataset.csv` is in the same folder as `app.py`.
+
+### 2. Comparison page link does not work
+Move `app_model_comparison.py` into a `pages/` folder and rename it to `Model_Comparison.py`.
+
+### 3. SHAP explanations are unavailable
+Install SHAP:
+
+```bash
+pip install shap
+```
+
+### 4. PDF download is unavailable
+Install ReportLab:
+
+```bash
+pip install reportlab
+```
+
+### 5. XGBoost does not appear in the algorithm list
+Install XGBoost:
+
+```bash
+pip install xgboost
+```
+
+## Team
+This project identifies the following proponents:
+- **Lorenzo V. Altonaga**
+- **Jemiry Royce Sarceda**
+- **Bob Mathew Sunga**
+- **Kendrick Francis Torres**
+
+## Disclaimer
+BrewGPT is a **decision-support prototype**. Its outputs should be validated with real brewing sessions, tasting panels, and operational testing before full deployment in café or production settings.
+
+The application is best used as a guided experimentation and personalization tool, not as a replacement for sensory expertise.
